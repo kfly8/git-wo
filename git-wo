@@ -16,7 +16,15 @@
 
 set -e
 
-WORKTREE_ROOT="${WORKTREE_ROOT:-$HOME/worktree}"
+# Configuration via git-config
+# - wo.root: Base directory for worktrees (default: ~/worktree)
+# - wo.postHook: Script to run after creating a worktree
+
+get_config() {
+  git config --get "$1" 2>/dev/null || echo "$2"
+}
+
+WORKTREE_ROOT="$(get_config wo.root "$HOME/worktree")"
 
 # Extract host/user/repo from remote URL
 get_repo_path() {
@@ -76,6 +84,21 @@ cmd_add() {
 
   echo ""
   echo "Created: $worktree_dir"
+
+  # Run post hook if configured
+  local post_hook="$(get_config wo.postHook "")"
+  if [[ -n "$post_hook" ]]; then
+    post_hook="${post_hook/#\~/$HOME}"
+    if [[ -x "$post_hook" ]]; then
+      echo "Running post hook..."
+      ORIGINAL_PATH="$(git rev-parse --show-toplevel)" \
+      WORKTREE_PATH="$worktree_dir" \
+      BRANCH_NAME="$name" \
+      "$post_hook"
+    elif [[ -f "$post_hook" ]]; then
+      echo "Warning: post hook is not executable: $post_hook" >&2
+    fi
+  fi
 }
 
 cmd_prune_merged() {
@@ -148,8 +171,9 @@ case "${1:-}" in
       echo "  prune                     Prune stale worktree info"
       echo "  prune-merged [branch]     Remove worktrees for merged branches"
       echo ""
-      echo "Environment:"
-      echo "  WORKTREE_ROOT=$WORKTREE_ROOT"
+      echo "Configuration (git config):"
+      echo "  wo.root      = $WORKTREE_ROOT"
+      echo "  wo.postHook  = $(get_config wo.postHook '(not set)')"
     fi
     ;;
 esac

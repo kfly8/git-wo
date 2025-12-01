@@ -46,9 +46,36 @@ git wo prune-merged
 git wo prune
 ```
 
-## Environment Variables
+## Configuration
 
-- `WORKTREE_ROOT`: Base directory for worktrees (default: `~/worktree`)
+Configure via `git config`:
+
+```bash
+# Set worktree root directory (default: ~/worktree)
+git config --global wo.root ~/worktree
+
+# Set post-create hook script
+git config --global wo.postHook ~/.config/git-wo/post-hook
+```
+
+### Post Hook
+
+The `wo.postHook` script runs after creating a worktree. Environment variables available:
+
+- `ORIGINAL_PATH`: Path to the original repository
+- `WORKTREE_PATH`: Path to the new worktree
+- `BRANCH_NAME`: Name of the new branch
+
+Example hook script (`~/.config/git-wo/post-hook`):
+
+```bash
+#!/bin/bash
+cp "$ORIGINAL_PATH/.envrc" "$WORKTREE_PATH/" 2>/dev/null
+direnv allow "$WORKTREE_PATH"
+mise trust "$WORKTREE_PATH"
+```
+
+Don't forget to make it executable: `chmod +x ~/.config/git-wo/post-hook`
 
 ## Tips
 
