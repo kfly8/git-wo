@@ -101,6 +101,29 @@ cmd_add() {
   fi
 }
 
+cmd_remove() {
+  if [[ -z "$1" ]]; then
+    echo "Usage: git wo remove <path> [options...]"
+    exit 1
+  fi
+
+  local path="$1"
+  shift
+  local extra_args=("$@")
+
+  # Get branch name from worktree path
+  local branch=$(git worktree list | grep "^$path " | sed 's/.*\[\(.*\)\].*/\1/')
+
+  # Remove worktree
+  git worktree remove "$path" "${extra_args[@]}"
+
+  # Delete branch if found
+  if [[ -n "$branch" && "$branch" != "detached" ]]; then
+    echo "Deleting branch: $branch"
+    git branch -d "$branch"
+  fi
+}
+
 cmd_prune_merged() {
   local main_branch="${1:-main}"
   # Filter out: * (current branch), main, master, devel
@@ -147,7 +170,7 @@ case "${1:-}" in
     ;;
   remove|rm)
     shift
-    git worktree remove "$@"
+    cmd_remove "$@"
     ;;
   prune)
     shift
@@ -167,7 +190,7 @@ case "${1:-}" in
       echo "Commands:"
       echo "  add <name> [base] [opts]  Create worktree at $WORKTREE_ROOT/<repo>/<name>"
       echo "  list                      List worktrees"
-      echo "  remove <path>             Remove worktree"
+      echo "  remove <path>             Remove worktree and its branch"
       echo "  prune                     Prune stale worktree info"
       echo "  prune-merged [branch]     Remove worktrees for merged branches"
       echo ""
