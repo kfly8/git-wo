@@ -3,28 +3,59 @@
 # git wo - git worktree wrapper with ghq-style paths
 #
 # Usage:
-#   git wo add <name> [base-branch] [git worktree add options...]
-#   git wo list
-#   git wo remove <path>
-#   git wo prune
-#   git wo prune-merged [main-branch]
+#   git wo [-C <path>] add <name> [base-branch] [git worktree add options...]
+#   git wo [-C <path>] list
+#   git wo [-C <path>] remove <path>
+#   git wo [-C <path>] prune
+#   git wo [-C <path>] prune-merged [main-branch]
 #
 # Examples:
 #   git wo add feature1              # create from current branch
 #   git wo add feature1 main         # create from main
 #   git wo add feature1 main --track # pass options to git worktree add
+#   git wo -C /path/to/repo add feature1  # specify main directory
 
 set -e
 
 # Configuration via git-config
 # - wo.root: Base directory for worktrees (default: ~/worktree)
 # - wo.postHook: Script to run after creating a worktree
+# - wo.mainDir: Main worktree directory (default: current directory)
+
+# Parse -C option for specifying main directory
+MAIN_DIR=""
+while [[ "$1" == "-C" ]]; do
+  shift
+  MAIN_DIR="$1"
+  shift
+done
+
+# Change to main directory if specified
+if [[ -n "$MAIN_DIR" ]]; then
+  if [[ ! -d "$MAIN_DIR" ]]; then
+    echo "Error: Directory not found: $MAIN_DIR" >&2
+    exit 1
+  fi
+  cd "$MAIN_DIR"
+fi
 
 get_config() {
   git config --get "$1" 2>/dev/null || echo "$2"
 }
 
+# If no -C option, check wo.mainDir config
+if [[ -z "$MAIN_DIR" ]]; then
+  config_main_dir="$(get_config wo.mainDir "")"
+  if [[ -n "$config_main_dir" ]]; then
+    config_main_dir="${config_main_dir/#\~/$HOME}"
+    if [[ -d "$config_main_dir" ]]; then
+      cd "$config_main_dir"
+    fi
+  fi
+fi
+
 WORKTREE_ROOT="$(get_config wo.root "$HOME/worktree")"
+WORKTREE_ROOT="${WORKTREE_ROOT/#\~/$HOME}"
 
 # Extract host/user/repo from remote URL
 get_repo_path() {
@@ -36,10 +67,10 @@ get_repo_path() {
 
   local repo_path
   # git@host:user/repo.git
-  if [[ "$remote_url" =~ ^git@([^:]+):(.+?)(\.git)?$ ]]; then
+  if [[ "$remote_url" =~ ^git@([^:]+):(.+)$ ]]; then
     repo_path="${BASH_REMATCH[1]}/${BASH_REMATCH[2]%.git}"
   # https://host/user/repo.git
-  elif [[ "$remote_url" =~ ^https?://([^/]+)/(.+?)(\.git)?$ ]]; then
+  elif [[ "$remote_url" =~ ^https?://([^/]+)/(.+)$ ]]; then
     repo_path="${BASH_REMATCH[1]}/${BASH_REMATCH[2]%.git}"
   else
     repo_path=$(basename "$(git rev-parse --show-toplevel)")
@@ -185,7 +216,10 @@ case "${1:-}" in
     if [[ -n "$1" ]]; then
       git worktree "$@"
     else
-      echo "Usage: git wo <command> [options]"
+      echo "Usage: git wo [-C <path>] <command> [options]"
+      echo ""
+      echo "Options:"
+      echo "  -C <path>                 Run as if started in <path>"
       echo ""
       echo "Commands:"
       echo "  add <name> [base] [opts]  Create worktree at $WORKTREE_ROOT/<repo>/<name>"
@@ -196,6 +230,7 @@ case "${1:-}" in
       echo ""
       echo "Configuration (git config):"
       echo "  wo.root      = $WORKTREE_ROOT"
+      echo "  wo.mainDir   = $(get_config wo.mainDir '(not set)')"
       echo "  wo.postHook  = $(get_config wo.postHook '(not set)')"
     fi
     ;;
