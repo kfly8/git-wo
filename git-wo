@@ -79,9 +79,15 @@ get_repo_path() {
   echo "$repo_path"
 }
 
+branch_exists() {
+  git show-ref --verify --quiet "refs/heads/$1"
+}
+
 cmd_add() {
   if [[ -z "$1" ]]; then
     echo "Usage: git wo add <name> [base-branch] [options...]"
+    echo ""
+    echo "If the branch already exists, it will be used without creating a new one."
     echo ""
     echo "Examples:"
     echo "  git wo add feature1          # from current branch"
@@ -107,14 +113,26 @@ cmd_add() {
 
   mkdir -p "$(dirname "$worktree_dir")"
 
-  if [[ -n "$base_branch" ]]; then
-    git worktree add -b "$name" "$worktree_dir" "$base_branch" "${extra_args[@]}"
+  if branch_exists "$name"; then
+    # 既存ブランチを使用
+    if [[ -n "$base_branch" ]]; then
+      echo "Note: Ignoring base branch '$base_branch' because branch '$name' already exists"
+    fi
+    git worktree add "$worktree_dir" "$name" "${extra_args[@]}"
+    echo ""
+    echo "Created: $worktree_dir"
+    echo "Using existing branch: $name"
   else
-    git worktree add -b "$name" "$worktree_dir" "${extra_args[@]}"
+    # 新規ブランチを作成
+    if [[ -n "$base_branch" ]]; then
+      git worktree add -b "$name" "$worktree_dir" "$base_branch" "${extra_args[@]}"
+    else
+      git worktree add -b "$name" "$worktree_dir" "${extra_args[@]}"
+    fi
+    echo ""
+    echo "Created: $worktree_dir"
+    echo "Created new branch: $name"
   fi
-
-  echo ""
-  echo "Created: $worktree_dir"
 
   # Run post hook if configured
   local post_hook="$(get_config wo.postHook "")"
