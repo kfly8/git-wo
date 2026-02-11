@@ -60,18 +60,18 @@ eval "$(git-wo init)"
 
 ### How it works
 
-When you `cd` into a worktree under `~/worktree/...`, a sandboxed sub-shell is automatically started:
+When you `cd` into a worktree under `~/worktree/...`, a sandboxed sub-shell is automatically started. The prompt shows a 🔒 prefix to indicate you are inside the sandbox:
 
 ```bash
 cd ~/worktree/github.com/user/repo/feature1
 # → "Entering sandbox for: /Users/user/worktree/..."
-# All commands now run inside the sandbox
+# → Prompt changes: 🔒user@host %
 
 touch ~/should-fail  # → Operation not permitted
 touch ./local-file   # → OK (worktree directory is writable)
 
 exit
-# → "Left sandbox" (back to original shell)
+# → "Left sandbox" (back to original shell, 🔒 disappears)
 ```
 
 ### Disabling sandbox

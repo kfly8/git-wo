@@ -233,6 +233,15 @@ if [[ -n "\$BASH_VERSION" ]]; then
     _git_wo_chpwd
   }
 fi
+
+# Add sandbox indicator to prompt
+if [[ -n "\$GIT_WO_SANDBOX" ]]; then
+  if [[ -n "\$ZSH_VERSION" ]]; then
+    PROMPT="🔒\$PROMPT"
+  elif [[ -n "\$BASH_VERSION" ]]; then
+    PS1="🔒\$PS1"
+  fi
+fi
 SHELL_INTEGRATION
 }
 
