@@ -3,6 +3,7 @@
 # git wo - git worktree wrapper with ghq-style paths
 #
 # Usage:
+#   git wo init
 #   git wo [-C <path>] add <name> [base-branch] [git worktree add options...]
 #   git wo [-C <path>] list
 #   git wo [-C <path>] remove <path>
@@ -173,6 +174,68 @@ cmd_remove() {
   fi
 }
 
+cmd_init() {
+  local script_dir
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+
+  local sandbox_profile
+  sandbox_profile="$(get_config wo.sandboxProfile "")"
+  if [[ -z "$sandbox_profile" ]]; then
+    sandbox_profile="${script_dir}/sandbox/git-wo.sb"
+  else
+    sandbox_profile="${sandbox_profile/#\~/$HOME}"
+  fi
+
+  cat <<SHELL_INTEGRATION
+# git-wo shell integration
+# Add to your shell config: eval "\$(git-wo init)"
+
+_git_wo_chpwd() {
+  local worktree_root="${WORKTREE_ROOT}"
+
+  # Skip if already inside sandbox or sandbox is disabled
+  [[ -n "\$GIT_WO_SANDBOX" ]] && return
+  [[ -n "\$GIT_WO_NO_SANDBOX" ]] && return
+
+  # Skip if not under worktree root
+  [[ "\$PWD" != "\$worktree_root"/* ]] && return
+
+  # Skip if sandbox-exec is not available (non-macOS)
+  command -v sandbox-exec >/dev/null 2>&1 || return
+
+  local sandbox_profile="${sandbox_profile}"
+  if [[ ! -f "\$sandbox_profile" ]]; then
+    echo "git-wo: sandbox profile not found: \$sandbox_profile" >&2
+    return
+  fi
+
+  local repo_path
+  repo_path="\$(git rev-parse --git-common-dir 2>/dev/null)" || return
+  repo_path="\$(cd "\$repo_path" 2>/dev/null && pwd)" || return
+
+  echo "Entering sandbox for: \$PWD"
+  GIT_WO_SANDBOX=1 sandbox-exec -f "\$sandbox_profile" \\
+    -D HOME="\$HOME" \\
+    -D WORKTREE_PATH="\$PWD" \\
+    -D REPO_PATH="\$repo_path" \\
+    "\$SHELL"
+  echo "Left sandbox"
+}
+
+if [[ -n "\$ZSH_VERSION" ]]; then
+  autoload -Uz add-zsh-hook
+  add-zsh-hook chpwd _git_wo_chpwd
+fi
+
+if [[ -n "\$BASH_VERSION" ]]; then
+  cd() {
+    builtin cd "\$@" || return
+    _git_wo_chpwd
+  }
+fi
+SHELL_INTEGRATION
+}
+
 cmd_prune_merged() {
   local main_branch="${1:-main}"
   # Filter out: * (current branch), main, master, devel
@@ -209,6 +272,10 @@ cmd_prune_merged() {
 
 # Main
 case "${1:-}" in
+  init)
+    shift
+    cmd_init "$@"
+    ;;
   add)
     shift
     cmd_add "$@"
@@ -240,6 +307,7 @@ case "${1:-}" in
       echo "  -C <path>                 Run as if started in <path>"
       echo ""
       echo "Commands:"
+      echo "  init                      Output shell integration for sandbox"
       echo "  add <name> [base] [opts]  Create worktree at $WORKTREE_ROOT/<repo>/<name>"
       echo "  list                      List worktrees"
       echo "  remove <path>             Remove worktree and its branch"
@@ -247,9 +315,10 @@ case "${1:-}" in
       echo "  prune-merged [branch]     Remove worktrees for merged branches"
       echo ""
       echo "Configuration (git config):"
-      echo "  wo.root      = $WORKTREE_ROOT"
-      echo "  wo.mainDir   = $(get_config wo.mainDir '(not set)')"
-      echo "  wo.postHook  = $(get_config wo.postHook '(not set)')"
+      echo "  wo.root           = $WORKTREE_ROOT"
+      echo "  wo.mainDir        = $(get_config wo.mainDir '(not set)')"
+      echo "  wo.postHook       = $(get_config wo.postHook '(not set)')"
+      echo "  wo.sandboxProfile = $(get_config wo.sandboxProfile '(not set)')"
     fi
     ;;
 esac
