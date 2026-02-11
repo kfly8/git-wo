@@ -236,10 +236,37 @@ fi
 
 # Add sandbox indicator to prompt
 if [[ -n "\$GIT_WO_SANDBOX" ]]; then
-  if [[ -n "\$ZSH_VERSION" ]]; then
-    PROMPT="🔒\$PROMPT"
+  _git_wo_process_prompt() {
+    local p="\$1"
+    if [[ "\$p" == *\$'\\n'* ]]; then
+      printf '%s\\n🔒%s' "\${p%\$'\\n'*}" "\${p##*\$'\\n'}"
+    else
+      printf '🔒%s' "\$p"
+    fi
+  }
+  if [[ -n "\$ZSH_VERSION" ]] && [[ -o promptsubst ]]; then
+    _GIT_WO_ORIG_PROMPT="\$PROMPT"
+    PROMPT='\$(_git_wo_process_prompt "\${(e)_GIT_WO_ORIG_PROMPT}")'
+  elif [[ -n "\$ZSH_VERSION" ]]; then
+    _git_wo_sandbox_precmd() {
+      [[ "\$PROMPT" == *🔒* ]] && return
+      if [[ "\$PROMPT" == *\$'\\n'* ]]; then
+        PROMPT="\${PROMPT%\$'\\n'*}"\$'\\n'"🔒\${PROMPT##*\$'\\n'}"
+      else
+        PROMPT="🔒\$PROMPT"
+      fi
+    }
+    precmd_functions+=(_git_wo_sandbox_precmd)
   elif [[ -n "\$BASH_VERSION" ]]; then
-    PS1="🔒\$PS1"
+    _git_wo_sandbox_precmd() {
+      [[ "\$PS1" == *🔒* ]] && return
+      if [[ "\$PS1" == *\$'\\n'* ]]; then
+        PS1="\${PS1%\$'\\n'*}"\$'\\n'"🔒\${PS1##*\$'\\n'}"
+      else
+        PS1="🔒\$PS1"
+      fi
+    }
+    PROMPT_COMMAND="_git_wo_sandbox_precmd\${PROMPT_COMMAND:+;\$PROMPT_COMMAND}"
   fi
 fi
 SHELL_INTEGRATION
