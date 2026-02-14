@@ -15,11 +15,12 @@ A thin wrapper around `git worktree` that creates worktrees in a ghq-style direc
 ## Installation
 
 ```bash
-curl -o ~/bin/git-wo https://raw.githubusercontent.com/kfly8/git-wo/main/git-wo
-chmod +x ~/bin/git-wo
-```
+git clone https://github.com/kfly8/git-wo.git
+cd git-wo
 
-Make sure `~/bin` is in your `PATH`.
+# Add to PATH (add to .bashrc or .zshrc)
+export PATH="$PWD/bin:$PATH"
+```
 
 ## Usage
 
