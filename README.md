@@ -46,48 +46,6 @@ git wo prune-merged
 git wo prune
 ```
 
-## Sandbox
-
-`git-wo` can automatically launch a sandboxed sub-shell when you `cd` into a worktree directory. The sandbox uses macOS `sandbox-exec` (Apple Seatbelt) to restrict file writes to the worktree directory only, keeping the rest of your home directory safe.
-
-### Setup
-
-Add to your `~/.zshrc` (or `~/.bashrc`):
-
-```bash
-eval "$(git-wo init)"
-```
-
-### How it works
-
-When you `cd` into a worktree under `~/worktree/...`, a sandboxed sub-shell is automatically started. The prompt shows a 🔒 prefix to indicate you are inside the sandbox:
-
-```bash
-cd ~/worktree/github.com/user/repo/feature1
-# → "Entering sandbox for: /Users/user/worktree/..."
-# → Prompt changes: 🔒user@host %
-
-touch ~/should-fail  # → Operation not permitted
-touch ./local-file   # → OK (worktree directory is writable)
-
-exit
-# → "Left sandbox" (back to original shell, 🔒 disappears)
-```
-
-### Disabling sandbox
-
-To `cd` into a worktree without sandbox:
-
-```bash
-GIT_WO_NO_SANDBOX=1 cd ~/worktree/.../feature1
-```
-
-### Notes
-
-- **macOS only**: `sandbox-exec` is required. On other platforms, the shell integration is a no-op.
-- **Nesting prevention**: The sandbox will not start if you are already inside one (`$GIT_WO_SANDBOX`).
-- **Custom profile**: Set `wo.sandboxProfile` in git config to use a custom sandbox profile.
-
 ## Configuration
 
 Configure via `git config`:
@@ -98,9 +56,6 @@ git config --global wo.root ~/worktree
 
 # Set post-create hook script
 git config --global wo.postHook ~/.config/git-wo/post-hook
-
-# Set custom sandbox profile (default: <script-dir>/sandbox/git-wo.sb)
-git config --global wo.sandboxProfile /path/to/custom.sb
 ```
 
 ### Post Hook
